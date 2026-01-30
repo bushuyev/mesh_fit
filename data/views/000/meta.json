@@ -1,0 +1,22 @@
+{
+  "src": "assets/female_1/1.jpg",
+  "orig_size": [
+    95,
+    464
+  ],
+  "crop_bbox_xyxy": [
+    0,
+    0,
+    95,
+    464
+  ],
+  "pad_tblr": [
+    0,
+    0,
+    184,
+    185
+  ],
+  "square_side_before_resize": 464,
+  "out_size": 1024,
+  "scale": 2.206896551724138
+}
