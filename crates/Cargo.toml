@@ -1,0 +1,4 @@
+[workspace]
+members = ["mesh_train"]
+resolver = "2"
+
