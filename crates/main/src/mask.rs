@@ -42,8 +42,24 @@ pub struct MaskArgs {
 pub fn run(args: &MaskArgs) -> Result<()> {
     std::fs::create_dir_all(&args.out_dir)?;
 
-    // Uses CUDA by default when available, matching the example behavior.
-    let device = candle_examples::device(args.cpu)?;
+    match run_inner(args, args.cpu) {
+        Ok(()) => Ok(()),
+        Err(err) if !args.cpu && is_cuda_runtime_error(&err) => {
+            eprintln!("initial CUDA masking error:\n{err:#}");
+            eprintln!(
+                "CUDA execution failed (driver/toolchain mismatch or unsupported runtime). \
+                 Retrying on CPU. Use --cpu to force this mode explicitly."
+            );
+            run_inner(args, true).context("masking failed after CPU fallback")
+        }
+        Err(err) => Err(err),
+    }
+}
+
+/// Executes masking with an explicit device choice (CPU when `force_cpu=true`).
+fn run_inner(args: &MaskArgs, force_cpu: bool) -> Result<()> {
+    // Uses CUDA by default when available unless explicitly forced to CPU.
+    let device = candle_examples::device(force_cpu)?;
 
     let api = Api::new()?;
     let repo = api.model(args.hf_model.clone());
@@ -66,6 +82,18 @@ pub fn run(args: &MaskArgs) -> Result<()> {
         process_one_image(&sam, args, &device, &image_path)?;
     }
     Ok(())
+}
+
+/// Detects CUDA errors that can be recovered by retrying on CPU.
+fn is_cuda_runtime_error(err: &anyhow::Error) -> bool {
+    let s = format!("{err:#}").to_ascii_lowercase();
+    s.contains("drivererror(")
+        || s.contains("cuda_error_")
+        || s.contains("cuda ")
+        || s.contains("cuda_error_operating_system")
+        || s.contains("cuda_error_unsupported_ptx_version")
+        || s.contains("unsupported ptx")
+        || s.contains("unsupported toolchain")
 }
 
 /// Runs SAM automatic mask generation for a single image and writes PNG masks.

@@ -3,6 +3,7 @@ LIBTORCH = "/home/bu/dvl/torch/libtorch-2.7.1"
 # tch/torch-sys 0.20 expects 2.7.0; local install is 2.7.1+cu126.
 LIBTORCH_BYPASS_VERSION_CHECK = "1"
 LIBTORCH_CXX11_ABI = "1"
+CUDA_COMPUTE_CAP = "89"
 
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "link-arg=-Wl,-rpath,/home/bu/dvl/torch/libtorch-2.7.1/lib"]

@@ -54,49 +54,50 @@ struct ViewSet {
 impl ViewSet {
     /// Loads all valid view subfolders and optionally truncates the count.
     fn load(dir: &Path, num_views: usize, device: Device) -> Result<Self> {
-        let mut subdirs: Vec<_> = std::fs::read_dir(dir)?
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .filter(|p| p.is_dir())
-            .collect();
-        subdirs.sort();
-
-        let mut items = Vec::new();
-        for sd in subdirs {
-            let meta_path = sd.join("meta.json");
-            let sdf_path = sd.join("sdf.npy");
-            if !(meta_path.exists() && sdf_path.exists()) {
-                continue;
-            }
-
-            let meta: Meta = serde_json::from_reader(std::fs::File::open(&meta_path)?)?;
-            let size = meta.out_size;
-
-            let sdf: Array2<f32> =
-                read_npy(&sdf_path).with_context(|| format!("read {:?}", sdf_path))?;
-            let (h, w) = (sdf.shape()[0] as i64, sdf.shape()[1] as i64);
-            let (sdf_vec, offset) = sdf.into_raw_vec_and_offset();
-            if offset.is_some_and(|x| x != 0) {
-                bail!("unexpected non-zero ndarray offset in {:?}", sdf_path);
-            }
-            let sdf_t = Tensor::from_slice(&sdf_vec)
-                .view([1, 1, h, w])
-                .to_device(device);
-
-            items.push(ViewObs {
-                w: size as f64,
-                h: size as f64,
-                sdf: sdf_t,
-            });
-        }
-
-        if items.is_empty() {
-            bail!("no views found under {:?}", dir);
-        }
-        if num_views > 0 && items.len() > num_views {
-            items.truncate(num_views);
-        }
-        Ok(Self { items })
+        // let mut subdirs: Vec<_> = std::fs::read_dir(dir)?
+        //     .filter_map(|e| e.ok())
+        //     .map(|e| e.path())
+        //     .filter(|p| p.is_dir())
+        //     .collect();
+        // subdirs.sort();
+        //
+        // let mut items = Vec::new();
+        // for sd in subdirs {
+        //     let meta_path = sd.join("meta.json");
+        //     let sdf_path = sd.join("sdf.npy");
+        //     if !(meta_path.exists() && sdf_path.exists()) {
+        //         continue;
+        //     }
+        //
+        //     let meta: Meta = serde_json::from_reader(std::fs::File::open(&meta_path)?)?;
+        //     let size = meta.out_size;
+        //
+        //     let sdf: Array2<f32> =
+        //         read_npy(&sdf_path).with_context(|| format!("read {:?}", sdf_path))?;
+        //     let (h, w) = (sdf.shape()[0] as i64, sdf.shape()[1] as i64);
+        //     let (sdf_vec, offset) = sdf.into_raw_vec_and_offset();
+        //     if offset.is_some_and(|x| x != 0) {
+        //         bail!("unexpected non-zero ndarray offset in {:?}", sdf_path);
+        //     }
+        //     let sdf_t = Tensor::from_slice(&sdf_vec)
+        //         .view([1, 1, h, w])
+        //         .to_device(device);
+        //
+        //     items.push(ViewObs {
+        //         w: size as f64,
+        //         h: size as f64,
+        //         sdf: sdf_t,
+        //     });
+        // }
+        //
+        // if items.is_empty() {
+        //     bail!("no views found under {:?}", dir);
+        // }
+        // if num_views > 0 && items.len() > num_views {
+        //     items.truncate(num_views);
+        // }
+        // Ok(Self { items })
+        todo!()
     }
 
     /// Returns the number of loaded observations.
@@ -457,24 +458,25 @@ impl MeshTrainApp {
     /// Exports final skinned vertices as an `Nx3` `.npy` file.
     fn export_vertices(&self) -> Result<()> {
         tch::no_grad(|| -> Result<()> {
-            let v_skin = self.mesh.skin_vertices(&self.train.log_sxz);
-            let v_cpu = v_skin.to_device(Device::Cpu);
-            let flat: Vec<f32> = Vec::<f32>::try_from(&v_cpu.reshape([-1]))?;
-
-            let n = flat.len() / 3;
-            let mut arr = Array2::<f32>::zeros((n, 3));
-            for i in 0..n {
-                arr[(i, 0)] = flat[3 * i];
-                arr[(i, 1)] = flat[3 * i + 1];
-                arr[(i, 2)] = flat[3 * i + 2];
-            }
-
-            if let Some(parent) = self.args.out_npy.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            write_npy(&self.args.out_npy, &arr)?;
-            eprintln!("wrote {:?}", self.args.out_npy);
-            Ok(())
+            // let v_skin = self.mesh.skin_vertices(&self.train.log_sxz);
+            // let v_cpu = v_skin.to_device(Device::Cpu);
+            // let flat: Vec<f32> = Vec::<f32>::try_from(&v_cpu.reshape([-1]))?;
+            //
+            // let n = flat.len() / 3;
+            // let mut arr = Array2::<f32>::zeros((n, 3));
+            // for i in 0..n {
+            //     arr[(i, 0)] = flat[3 * i];
+            //     arr[(i, 1)] = flat[3 * i + 1];
+            //     arr[(i, 2)] = flat[3 * i + 2];
+            // }
+            //
+            // if let Some(parent) = self.args.out_npy.parent() {
+            //     std::fs::create_dir_all(parent)?;
+            // }
+            // write_npy(&self.args.out_npy, &arr)?;
+            // eprintln!("wrote {:?}", self.args.out_npy);
+            // Ok(())
+            todo!()
         })
     }
 }
