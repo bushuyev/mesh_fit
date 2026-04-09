@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use crate::mod_net::ModArgs;
+use crate::onnx::OnnxArgs;
 
 mod mask;
 mod test;
@@ -26,7 +27,7 @@ enum Command {
     /// Runs a minimal Candle tensor matmul test on CUDA (or CPU).
     Test(test::TestArgs),
 
-    Mod(ModArgs),
+    Onnx(OnnxArgs),
 }
 
 /// Program entrypoint: parse args and dispatch to the selected mode.
@@ -36,6 +37,6 @@ fn main() -> Result<()> {
         Command::Train(args) => train::run(args),
         Command::Mask(args) => mask::run(&args),
         Command::Test(args) => test::run(&args),
-        Command::Mod(args) => mod_net::run_mod(&args)
+        Command::Onnx(args) => onnx::run_onnx(args)
     }
 }
