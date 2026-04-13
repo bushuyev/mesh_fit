@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(blender_shim LANGUAGES C CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -18,6 +19,11 @@ if(NOT EXISTS "${BLENDER_VERSION_HEADER}")
             "Set -DBLENDER_SOURCE_DIR=/path/to/blender")
 endif()
 
+set(BLENDER_BLENKERNEL_DIR
+        "${BLENDER_SOURCE_DIR}/source/blender/blenkernel")
+set(BLENDER_BLENLIB_DIR
+        "${BLENDER_SOURCE_DIR}/source/blender/blenlib")
+
 add_library(blender_shim STATIC
         src-cpp/blender_shim.cpp
 )
@@ -25,12 +31,12 @@ add_library(blender_shim STATIC
 target_include_directories(blender_shim
         PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/src-cpp"
-        "${BLENDER_SOURCE_DIR}/source/blender/blenkernel"
+        "${BLENDER_BLENKERNEL_DIR}"
+        "${BLENDER_BLENLIB_DIR}"
 )
 
 target_compile_features(blender_shim PUBLIC cxx_std_17)
 
-# Nice-to-have warnings.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(blender_shim PRIVATE -Wall -Wextra -Wpedantic)
 endif()

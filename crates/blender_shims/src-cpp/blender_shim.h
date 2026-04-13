@@ -14,12 +14,20 @@ extern "C" {
 int blender_shim_version_major();
 int blender_shim_version_minor();
 int blender_shim_version_patch();
+int blender_shim_version_string(char *out, int out_size);
 
 /**
- * Writes something like "5.1.0" into `out`, always NUL-terminated if out_size > 0.
- * Returns the number of characters that would have been written, excluding NUL.
+ * Normalizes a 3D vector using Blender math utilities.
+ *
+ * Returns the original vector length before normalization.
+ * If the vector is zero-length, Blender leaves it as-is.
  */
-int blender_shim_version_string(char *out, int out_size);
+float blender_shim_normalize_vec3(const float in[3], float out[3]);
+
+/**
+ * Computes dot product of two 3D vectors using Blender math utilities.
+ */
+float blender_shim_dot_vec3(const float a[3], const float b[3]);
 
 #ifdef __cplusplus
 }
