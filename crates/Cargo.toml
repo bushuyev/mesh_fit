@@ -1,4 +1,9 @@
 [workspace]
-members = ["main"]
-resolver = "2"
+resolver = "3"
+members = ["blender_shims","main"]
+
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
 

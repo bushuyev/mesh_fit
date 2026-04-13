@@ -1,0 +1,9 @@
+[package]
+name = "blender_shims"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[build-dependencies]
+cmake = "0.1"

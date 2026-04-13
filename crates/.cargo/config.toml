@@ -5,6 +5,7 @@ LIBTORCH_BYPASS_VERSION_CHECK = "1"
 LIBTORCH_CXX11_ABI = "1"
 CUDA_COMPUTE_CAP = "89"
 ORT_DYLIB_PATH= "/home/bu/dvl/microsoft/onnxruntime-linux-x64-1.24.4/lib/libonnxruntime.so"
+BLENDER_SOURCE_DIR="/home/bu/dvl/cpp/blender"
 
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "link-arg=-Wl,-rpath,/home/bu/dvl/torch/libtorch-2.7.1/lib"]
