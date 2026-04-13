@@ -142,6 +142,28 @@ void blender_shim_debug_print_torso_landmarks(
     const BlenderShimNamedJoint *joints,
     int joint_count);
 
+
+typedef struct BlenderShimBasis3 {
+    BlenderShimVec3 x_axis;
+    BlenderShimVec3 y_axis;
+    BlenderShimVec3 z_axis;
+    int ok;
+} BlenderShimBasis3;
+
+typedef struct BlenderShimTorsoFrameResult {
+    BlenderShimTorsoLandmarksResult landmarks;
+    BlenderShimVec3 origin;
+    BlenderShimBasis3 basis;
+} BlenderShimTorsoFrameResult;
+
+BlenderShimTorsoFrameResult blender_shim_compute_torso_frame(
+    const BlenderShimNamedJoint *joints,
+    int joint_count);
+
+void blender_shim_debug_print_torso_frame(
+    const BlenderShimNamedJoint *joints,
+    int joint_count);
+
 #ifdef __cplusplus
 }
 #endif

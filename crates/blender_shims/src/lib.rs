@@ -40,6 +40,17 @@ unsafe extern "C" {
         joints: *const BlenderShimNamedJoint,
         joint_count: c_int,
     );
+
+
+    fn blender_shim_compute_torso_frame(
+        joints: *const BlenderShimNamedJoint,
+        joint_count: c_int,
+    ) -> BlenderShimTorsoFrameResult;
+
+    fn blender_shim_debug_print_torso_frame(
+        joints: *const BlenderShimNamedJoint,
+        joint_count: c_int,
+    );
 }
 
 #[repr(C)]
@@ -353,6 +364,97 @@ pub fn debug_print_torso_landmarks(joints: &[NamedJoint]) {
         blender_shim_debug_print_torso_landmarks(ffi_joints.as_ptr(), ffi_joints.len() as c_int);
     }
 }
+
+
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlenderShimBasis3 {
+    pub x_axis: BlenderShimVec3,
+    pub y_axis: BlenderShimVec3,
+    pub z_axis: BlenderShimVec3,
+    pub ok: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlenderShimTorsoFrameResult {
+    pub landmarks: BlenderShimTorsoLandmarksResult,
+    pub origin: BlenderShimVec3,
+    pub basis: BlenderShimBasis3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Basis3 {
+    pub x_axis: [f32; 3],
+    pub y_axis: [f32; 3],
+    pub z_axis: [f32; 3],
+    pub ok: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TorsoFrame {
+    pub landmarks: TorsoLandmarks,
+    pub origin: [f32; 3],
+    pub basis: Basis3,
+}
+
+
+pub fn compute_torso_frame(joints: &[NamedJoint]) -> TorsoFrame {
+    let ffi_joints: Vec<BlenderShimNamedJoint> =
+        joints.iter().copied().map(to_ffi_named_joint).collect();
+
+    let result = unsafe {
+        blender_shim_compute_torso_frame(ffi_joints.as_ptr(), ffi_joints.len() as c_int)
+    };
+
+    TorsoFrame {
+        landmarks: TorsoLandmarks {
+            pelvis_found: result.landmarks.pelvis_found != 0,
+            neck_found: result.landmarks.neck_found != 0,
+            left_shoulder_found: result.landmarks.left_shoulder_found != 0,
+            right_shoulder_found: result.landmarks.right_shoulder_found != 0,
+            left_hip_found: result.landmarks.left_hip_found != 0,
+            right_hip_found: result.landmarks.right_hip_found != 0,
+
+            pelvis_center_ok: result.landmarks.pelvis_center_ok != 0,
+            shoulder_center_ok: result.landmarks.shoulder_center_ok != 0,
+            torso_up_ok: result.landmarks.torso_up_ok != 0,
+            shoulder_axis_ok: result.landmarks.shoulder_axis_ok != 0,
+            hip_axis_ok: result.landmarks.hip_axis_ok != 0,
+
+            pelvis: from_ffi_vec3(result.landmarks.pelvis),
+            neck: from_ffi_vec3(result.landmarks.neck),
+            left_shoulder: from_ffi_vec3(result.landmarks.left_shoulder),
+            right_shoulder: from_ffi_vec3(result.landmarks.right_shoulder),
+            left_hip: from_ffi_vec3(result.landmarks.left_hip),
+            right_hip: from_ffi_vec3(result.landmarks.right_hip),
+
+            pelvis_center: from_ffi_vec3(result.landmarks.pelvis_center),
+            shoulder_center: from_ffi_vec3(result.landmarks.shoulder_center),
+
+            torso_up: from_ffi_bone(result.landmarks.torso_up),
+            shoulder_axis: from_ffi_bone(result.landmarks.shoulder_axis),
+            hip_axis: from_ffi_bone(result.landmarks.hip_axis),
+        },
+        origin: from_ffi_vec3(result.origin),
+        basis: Basis3 {
+            x_axis: from_ffi_vec3(result.basis.x_axis),
+            y_axis: from_ffi_vec3(result.basis.y_axis),
+            z_axis: from_ffi_vec3(result.basis.z_axis),
+            ok: result.basis.ok != 0,
+        },
+    }
+}
+
+pub fn debug_print_torso_frame(joints: &[NamedJoint]) {
+    let ffi_joints: Vec<BlenderShimNamedJoint> =
+        joints.iter().copied().map(to_ffi_named_joint).collect();
+
+    unsafe {
+        blender_shim_debug_print_torso_frame(ffi_joints.as_ptr(), ffi_joints.len() as c_int);
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -597,5 +699,106 @@ mod tests {
         assert!(torso.torso_up_ok);
         assert!(torso.shoulder_axis_ok);
         assert!(torso.hip_axis_ok);
+    }
+
+
+    #[test]
+    fn compute_torso_frame_works() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.6],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftShoulder,
+                position: [-0.2, 0.0, 1.5],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::RightShoulder,
+                position: [0.2, 0.0, 1.5],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftHip,
+                position: [-0.15, 0.0, 1.0],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::RightHip,
+                position: [0.15, 0.0, 1.0],
+                confidence: 1.0,
+            },
+        ];
+
+        let frame = compute_torso_frame(&joints);
+
+        assert!(frame.basis.ok);
+
+        approx_eq(frame.origin[0], 0.0, 1e-6);
+        approx_eq(frame.origin[1], 0.0, 1e-6);
+        approx_eq(frame.origin[2], 1.0, 1e-6);
+
+        approx_eq(frame.basis.x_axis[0], 1.0, 1e-6);
+        approx_eq(frame.basis.x_axis[1], 0.0, 1e-6);
+        approx_eq(frame.basis.x_axis[2], 0.0, 1e-6);
+
+        approx_eq(frame.basis.z_axis[0], 0.0, 1e-6);
+        approx_eq(frame.basis.z_axis[1], 0.0, 1e-6);
+        approx_eq(frame.basis.z_axis[2], 1.0, 1e-6);
+
+        approx_eq(frame.basis.y_axis[0], 0.0, 1e-6);
+        approx_eq(frame.basis.y_axis[1], 1.0, 1e-6);
+        approx_eq(frame.basis.y_axis[2], 0.0, 1e-6);
+    }
+
+
+    #[test]
+    fn print_torso_frame() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 0.99,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.62],
+                confidence: 0.97,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftShoulder,
+                position: [-0.23, 0.02, 1.50],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::RightShoulder,
+                position: [0.21, -0.01, 1.49],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftHip,
+                position: [-0.14, 0.01, 1.01],
+                confidence: 0.96,
+            },
+            NamedJoint {
+                joint_id: JointId::RightHip,
+                position: [0.16, -0.02, 0.99],
+                confidence: 0.96,
+            },
+        ];
+
+        let frame = compute_torso_frame(&joints);
+        println!("frame: {frame:?}");
+
+        debug_print_torso_frame(&joints);
+
+        assert!(frame.basis.ok);
     }
 }

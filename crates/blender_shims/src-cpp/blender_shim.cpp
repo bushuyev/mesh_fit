@@ -314,3 +314,128 @@ void blender_shim_debug_print_torso_landmarks(
 
     std::fflush(stdout);
 }
+
+
+
+
+static BlenderShimVec3 make_vec3(float x, float y, float z)
+{
+    BlenderShimVec3 out{};
+    out.x = x;
+    out.y = y;
+    out.z = z;
+    return out;
+}
+
+static void copy_vec3(BlenderShimVec3 v, float out[3])
+{
+    out[0] = v.x;
+    out[1] = v.y;
+    out[2] = v.z;
+}
+
+static BlenderShimVec3 normalized_vec3_or_zero(BlenderShimVec3 v, int *ok)
+{
+    float a[3];
+    copy_vec3(v, a);
+    const float len = normalize_v3(a);
+    if (len > 1.0e-8f) {
+        if (ok != nullptr) {
+            *ok = 1;
+        }
+        return array_to_vec3(a);
+    }
+    if (ok != nullptr) {
+        *ok = 0;
+    }
+    return make_vec3(0.0f, 0.0f, 0.0f);
+}
+
+static BlenderShimVec3 cross_vec3(BlenderShimVec3 a, BlenderShimVec3 b)
+{
+    float aa[3];
+    float bb[3];
+    float out[3];
+    copy_vec3(a, aa);
+    copy_vec3(b, bb);
+    cross_v3_v3v3(out, aa, bb);
+    return array_to_vec3(out);
+}
+
+BlenderShimTorsoFrameResult blender_shim_compute_torso_frame(
+    const BlenderShimNamedJoint *joints,
+    int joint_count)
+{
+    BlenderShimTorsoFrameResult result{};
+    result.landmarks = blender_shim_compute_torso_landmarks(joints, joint_count);
+
+    if (!result.landmarks.pelvis_center_ok) {
+        return result;
+    }
+
+    result.origin = result.landmarks.pelvis_center;
+
+    if (!result.landmarks.torso_up_ok || !result.landmarks.shoulder_axis_ok) {
+        return result;
+    }
+
+    BlenderShimVec3 x_axis = result.landmarks.shoulder_axis.direction_unit;
+    BlenderShimVec3 z_axis = result.landmarks.torso_up.direction_unit;
+
+    int ok_forward = 0;
+    BlenderShimVec3 y_axis = normalized_vec3_or_zero(cross_vec3(z_axis, x_axis), &ok_forward);
+    if (!ok_forward) {
+        return result;
+    }
+
+    int ok_x = 0;
+    x_axis = normalized_vec3_or_zero(cross_vec3(y_axis, z_axis), &ok_x);
+    if (!ok_x) {
+        return result;
+    }
+
+    int ok_z = 0;
+    z_axis = normalized_vec3_or_zero(z_axis, &ok_z);
+    if (!ok_z) {
+        return result;
+    }
+
+    result.basis.x_axis = x_axis;
+    result.basis.y_axis = y_axis;
+    result.basis.z_axis = z_axis;
+    result.basis.ok = 1;
+
+    return result;
+}
+
+void blender_shim_debug_print_torso_frame(
+    const BlenderShimNamedJoint *joints,
+    int joint_count)
+{
+    const BlenderShimTorsoFrameResult r =
+        blender_shim_compute_torso_frame(joints, joint_count);
+
+    std::printf(
+        "[blender_shim] torso_frame: basis_ok=%d\n",
+        r.basis.ok);
+
+    if (r.landmarks.pelvis_center_ok) {
+        std::printf(
+            "  origin=(%.6f, %.6f, %.6f)\n",
+            r.origin.x, r.origin.y, r.origin.z);
+    }
+
+    if (r.basis.ok) {
+        std::printf(
+            "  x_axis=(%.6f, %.6f, %.6f)\n",
+            r.basis.x_axis.x, r.basis.x_axis.y, r.basis.x_axis.z);
+        std::printf(
+            "  y_axis=(%.6f, %.6f, %.6f)\n",
+            r.basis.y_axis.x, r.basis.y_axis.y, r.basis.y_axis.z);
+        std::printf(
+            "  z_axis=(%.6f, %.6f, %.6f)\n",
+            r.basis.z_axis.x, r.basis.z_axis.y, r.basis.z_axis.z);
+    }
+
+    std::fflush(stdout);
+}
