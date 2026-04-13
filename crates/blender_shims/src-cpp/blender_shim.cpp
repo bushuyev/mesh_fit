@@ -111,3 +111,97 @@ void blender_shim_debug_print_bone_from_joints(
         r.ok);
     std::fflush(stdout);
 }
+
+
+static int find_joint(
+    const BlenderShimNamedJoint *joints,
+    int joint_count,
+    int joint_id,
+    BlenderShimVec3 *out_position)
+{
+    if (joints == nullptr || joint_count <= 0 || out_position == nullptr) {
+        return 0;
+    }
+
+    for (int i = 0; i < joint_count; ++i) {
+        if (joints[i].joint_id == joint_id) {
+            *out_position = joints[i].position;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+BlenderShimSimpleChainResult blender_shim_fit_simple_chain(
+    const BlenderShimNamedJoint *joints,
+    int joint_count)
+{
+    BlenderShimSimpleChainResult result{};
+    result.pelvis_found = find_joint(
+        joints, joint_count, BLENDER_SHIM_JOINT_PELVIS, &result.pelvis);
+    result.spine_found = find_joint(
+        joints, joint_count, BLENDER_SHIM_JOINT_SPINE, &result.spine);
+    result.neck_found = find_joint(
+        joints, joint_count, BLENDER_SHIM_JOINT_NECK, &result.neck);
+
+    if (result.pelvis_found && result.spine_found) {
+        result.pelvis_to_spine =
+            blender_shim_make_bone_from_joints(result.pelvis, result.spine);
+    }
+
+    if (result.spine_found && result.neck_found) {
+        result.spine_to_neck =
+            blender_shim_make_bone_from_joints(result.spine, result.neck);
+    }
+
+    return result;
+}
+
+void blender_shim_debug_print_simple_chain(
+    const BlenderShimNamedJoint *joints,
+    int joint_count)
+{
+    const BlenderShimSimpleChainResult r =
+        blender_shim_fit_simple_chain(joints, joint_count);
+
+    std::printf(
+        "[blender_shim] simple_chain: "
+        "pelvis_found=%d spine_found=%d neck_found=%d\n",
+        r.pelvis_found, r.spine_found, r.neck_found);
+
+    if (r.pelvis_found) {
+        std::printf(
+            "  pelvis=(%.6f, %.6f, %.6f)\n",
+            r.pelvis.x, r.pelvis.y, r.pelvis.z);
+    }
+    if (r.spine_found) {
+        std::printf(
+            "  spine =(%.6f, %.6f, %.6f)\n",
+            r.spine.x, r.spine.y, r.spine.z);
+    }
+    if (r.neck_found) {
+        std::printf(
+            "  neck  =(%.6f, %.6f, %.6f)\n",
+            r.neck.x, r.neck.y, r.neck.z);
+    }
+
+    if (r.pelvis_to_spine.ok) {
+        std::printf(
+            "  pelvis->spine len=%.6f dir=(%.6f, %.6f, %.6f)\n",
+            r.pelvis_to_spine.length,
+            r.pelvis_to_spine.direction_unit.x,
+            r.pelvis_to_spine.direction_unit.y,
+            r.pelvis_to_spine.direction_unit.z);
+    }
+
+    if (r.spine_to_neck.ok) {
+        std::printf(
+            "  spine->neck   len=%.6f dir=(%.6f, %.6f, %.6f)\n",
+            r.spine_to_neck.length,
+            r.spine_to_neck.direction_unit.x,
+            r.spine_to_neck.direction_unit.y,
+            r.spine_to_neck.direction_unit.z);
+    }
+
+    std::fflush(stdout);
+}

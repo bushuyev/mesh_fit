@@ -20,6 +20,16 @@ unsafe extern "C" {
         joint_a: BlenderShimVec3,
         joint_b: BlenderShimVec3,
     );
+
+    fn blender_shim_fit_simple_chain(
+        joints: *const BlenderShimNamedJoint,
+        joint_count: c_int,
+    ) -> BlenderShimSimpleChainResult;
+
+    fn blender_shim_debug_print_simple_chain(
+        joints: *const BlenderShimNamedJoint,
+        joint_count: c_int,
+    );
 }
 
 #[repr(C)]
@@ -118,6 +128,109 @@ pub fn debug_print_bone_from_joints(label: &str, joint_a: [f32; 3], joint_b: [f3
     }
 }
 
+
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JointId {
+    Pelvis = 0,
+    Spine = 1,
+    Neck = 2,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlenderShimNamedJoint {
+    pub joint_id: i32,
+    pub position: BlenderShimVec3,
+    pub confidence: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlenderShimSimpleChainResult {
+    pub pelvis_found: i32,
+    pub spine_found: i32,
+    pub neck_found: i32,
+
+    pub pelvis: BlenderShimVec3,
+    pub spine: BlenderShimVec3,
+    pub neck: BlenderShimVec3,
+
+    pub pelvis_to_spine: BlenderShimBoneFromJointsResult,
+    pub spine_to_neck: BlenderShimBoneFromJointsResult,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NamedJoint {
+    pub joint_id: JointId,
+    pub position: [f32; 3],
+    pub confidence: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SimpleChain {
+    pub pelvis_found: bool,
+    pub spine_found: bool,
+    pub neck_found: bool,
+
+    pub pelvis: [f32; 3],
+    pub spine: [f32; 3],
+    pub neck: [f32; 3],
+
+    pub pelvis_to_spine: BoneFromJoints,
+    pub spine_to_neck: BoneFromJoints,
+}
+
+fn to_ffi_named_joint(j: NamedJoint) -> BlenderShimNamedJoint {
+    BlenderShimNamedJoint {
+        joint_id: j.joint_id as i32,
+        position: to_ffi_vec3(j.position),
+        confidence: j.confidence,
+    }
+}
+
+fn from_ffi_bone(r: BlenderShimBoneFromJointsResult) -> BoneFromJoints {
+    BoneFromJoints {
+        head: from_ffi_vec3(r.head),
+        tail: from_ffi_vec3(r.tail),
+        direction_unit: from_ffi_vec3(r.direction_unit),
+        length: r.length,
+        ok: r.ok != 0,
+    }
+}
+
+
+pub fn fit_simple_chain(joints: &[NamedJoint]) -> SimpleChain {
+    let ffi_joints: Vec<BlenderShimNamedJoint> =
+        joints.iter().copied().map(to_ffi_named_joint).collect();
+
+    let result = unsafe {
+        blender_shim_fit_simple_chain(ffi_joints.as_ptr(), ffi_joints.len() as c_int)
+    };
+
+    SimpleChain {
+        pelvis_found: result.pelvis_found != 0,
+        spine_found: result.spine_found != 0,
+        neck_found: result.neck_found != 0,
+
+        pelvis: from_ffi_vec3(result.pelvis),
+        spine: from_ffi_vec3(result.spine),
+        neck: from_ffi_vec3(result.neck),
+
+        pelvis_to_spine: from_ffi_bone(result.pelvis_to_spine),
+        spine_to_neck: from_ffi_bone(result.spine_to_neck),
+    }
+}
+
+pub fn debug_print_simple_chain(joints: &[NamedJoint]) {
+    let ffi_joints: Vec<BlenderShimNamedJoint> =
+        joints.iter().copied().map(to_ffi_named_joint).collect();
+
+    unsafe {
+        blender_shim_debug_print_simple_chain(ffi_joints.as_ptr(), ffi_joints.len() as c_int);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,5 +310,69 @@ mod tests {
 
         assert!(torso.ok);
         assert!(upper_arm.ok);
+    }
+
+
+    #[test]
+    fn fit_simple_chain_works() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::Spine,
+                position: [0.0, 0.0, 1.4],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.7],
+                confidence: 1.0,
+            },
+        ];
+
+        let chain = fit_simple_chain(&joints);
+
+        assert!(chain.pelvis_found);
+        assert!(chain.spine_found);
+        assert!(chain.neck_found);
+
+        assert!(chain.pelvis_to_spine.ok);
+        assert!(chain.spine_to_neck.ok);
+
+        approx_eq(chain.pelvis_to_spine.length, 0.4, 1e-6);
+        approx_eq(chain.spine_to_neck.length, 0.3, 1e-6);
+    }
+
+
+    #[test]
+    fn print_simple_chain() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 0.99,
+            },
+            NamedJoint {
+                joint_id: JointId::Spine,
+                position: [0.0, 0.0, 1.35],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.65],
+                confidence: 0.97,
+            },
+        ];
+
+        let chain = fit_simple_chain(&joints);
+        println!("chain: {chain:?}");
+
+        debug_print_simple_chain(&joints);
+
+        assert!(chain.pelvis_to_spine.ok);
+        assert!(chain.spine_to_neck.ok);
     }
 }
