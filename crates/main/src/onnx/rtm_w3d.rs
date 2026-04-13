@@ -241,12 +241,13 @@ pub(crate) fn run_rtm_w3d(model_path: PathBuf, img:&DynamicImage, bbox:BBox) -> 
     let mut model = Rtmw3d::new(model_path)?;
 
     // bbox from RTMDet in original image coordinates
-   
+
 
     let kpts = model.infer_bbox(&img, bbox)?;
-    for (i, kp) in kpts.iter().enumerate().take(10) {
+    for (i, kp) in kpts.iter().enumerate() {
         println!(
-            "#{i:03}: x={:.1}, y={:.1}, z_rel={:.4}, score={:.4}",
+            // "#{i:03}: x={:.1}, y={:.1}, z_rel={:.4}, score={:.4}",
+            "KEYPOINTS_133[{i}] = ({:.1}, {:.1}, {:.4}, {:.4}) ",
             kp.x, kp.y, kp.z_rel, kp.score
         );
     }
