@@ -30,6 +30,16 @@ unsafe extern "C" {
         joints: *const BlenderShimNamedJoint,
         joint_count: c_int,
     );
+
+    fn blender_shim_compute_torso_landmarks(
+        joints: *const BlenderShimNamedJoint,
+        joint_count: c_int,
+    ) -> BlenderShimTorsoLandmarksResult;
+
+    fn blender_shim_debug_print_torso_landmarks(
+        joints: *const BlenderShimNamedJoint,
+        joint_count: c_int,
+    );
 }
 
 #[repr(C)]
@@ -135,6 +145,10 @@ pub enum JointId {
     Pelvis = 0,
     Spine = 1,
     Neck = 2,
+    LeftShoulder = 3,
+    RightShoulder = 4,
+    LeftHip = 5,
+    RightHip = 6,
 }
 
 #[repr(C)]
@@ -231,6 +245,114 @@ pub fn debug_print_simple_chain(joints: &[NamedJoint]) {
     }
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlenderShimTorsoLandmarksResult {
+    pub pelvis_found: i32,
+    pub neck_found: i32,
+    pub left_shoulder_found: i32,
+    pub right_shoulder_found: i32,
+    pub left_hip_found: i32,
+    pub right_hip_found: i32,
+
+    pub pelvis_center_ok: i32,
+    pub shoulder_center_ok: i32,
+    pub torso_up_ok: i32,
+    pub shoulder_axis_ok: i32,
+    pub hip_axis_ok: i32,
+
+    pub pelvis: BlenderShimVec3,
+    pub neck: BlenderShimVec3,
+    pub left_shoulder: BlenderShimVec3,
+    pub right_shoulder: BlenderShimVec3,
+    pub left_hip: BlenderShimVec3,
+    pub right_hip: BlenderShimVec3,
+
+    pub pelvis_center: BlenderShimVec3,
+    pub shoulder_center: BlenderShimVec3,
+
+    pub torso_up: BlenderShimBoneFromJointsResult,
+    pub shoulder_axis: BlenderShimBoneFromJointsResult,
+    pub hip_axis: BlenderShimBoneFromJointsResult,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TorsoLandmarks {
+    pub pelvis_found: bool,
+    pub neck_found: bool,
+    pub left_shoulder_found: bool,
+    pub right_shoulder_found: bool,
+    pub left_hip_found: bool,
+    pub right_hip_found: bool,
+
+    pub pelvis_center_ok: bool,
+    pub shoulder_center_ok: bool,
+    pub torso_up_ok: bool,
+    pub shoulder_axis_ok: bool,
+    pub hip_axis_ok: bool,
+
+    pub pelvis: [f32; 3],
+    pub neck: [f32; 3],
+    pub left_shoulder: [f32; 3],
+    pub right_shoulder: [f32; 3],
+    pub left_hip: [f32; 3],
+    pub right_hip: [f32; 3],
+
+    pub pelvis_center: [f32; 3],
+    pub shoulder_center: [f32; 3],
+
+    pub torso_up: BoneFromJoints,
+    pub shoulder_axis: BoneFromJoints,
+    pub hip_axis: BoneFromJoints,
+}
+
+
+pub fn compute_torso_landmarks(joints: &[NamedJoint]) -> TorsoLandmarks {
+    let ffi_joints: Vec<BlenderShimNamedJoint> =
+        joints.iter().copied().map(to_ffi_named_joint).collect();
+
+    let result = unsafe {
+        blender_shim_compute_torso_landmarks(ffi_joints.as_ptr(), ffi_joints.len() as c_int)
+    };
+
+    TorsoLandmarks {
+        pelvis_found: result.pelvis_found != 0,
+        neck_found: result.neck_found != 0,
+        left_shoulder_found: result.left_shoulder_found != 0,
+        right_shoulder_found: result.right_shoulder_found != 0,
+        left_hip_found: result.left_hip_found != 0,
+        right_hip_found: result.right_hip_found != 0,
+
+        pelvis_center_ok: result.pelvis_center_ok != 0,
+        shoulder_center_ok: result.shoulder_center_ok != 0,
+        torso_up_ok: result.torso_up_ok != 0,
+        shoulder_axis_ok: result.shoulder_axis_ok != 0,
+        hip_axis_ok: result.hip_axis_ok != 0,
+
+        pelvis: from_ffi_vec3(result.pelvis),
+        neck: from_ffi_vec3(result.neck),
+        left_shoulder: from_ffi_vec3(result.left_shoulder),
+        right_shoulder: from_ffi_vec3(result.right_shoulder),
+        left_hip: from_ffi_vec3(result.left_hip),
+        right_hip: from_ffi_vec3(result.right_hip),
+
+        pelvis_center: from_ffi_vec3(result.pelvis_center),
+        shoulder_center: from_ffi_vec3(result.shoulder_center),
+
+        torso_up: from_ffi_bone(result.torso_up),
+        shoulder_axis: from_ffi_bone(result.shoulder_axis),
+        hip_axis: from_ffi_bone(result.hip_axis),
+    }
+}
+
+pub fn debug_print_torso_landmarks(joints: &[NamedJoint]) {
+    let ffi_joints: Vec<BlenderShimNamedJoint> =
+        joints.iter().copied().map(to_ffi_named_joint).collect();
+
+    unsafe {
+        blender_shim_debug_print_torso_landmarks(ffi_joints.as_ptr(), ffi_joints.len() as c_int);
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -374,5 +496,106 @@ mod tests {
 
         assert!(chain.pelvis_to_spine.ok);
         assert!(chain.spine_to_neck.ok);
+    }
+
+
+    #[test]
+    fn compute_torso_landmarks_works() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.6],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftShoulder,
+                position: [-0.2, 0.0, 1.5],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::RightShoulder,
+                position: [0.2, 0.0, 1.5],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftHip,
+                position: [-0.15, 0.0, 1.0],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::RightHip,
+                position: [0.15, 0.0, 1.0],
+                confidence: 1.0,
+            },
+        ];
+
+        let torso = compute_torso_landmarks(&joints);
+
+        assert!(torso.pelvis_center_ok);
+        assert!(torso.shoulder_center_ok);
+        assert!(torso.torso_up_ok);
+        assert!(torso.shoulder_axis_ok);
+        assert!(torso.hip_axis_ok);
+
+        approx_eq(torso.pelvis_center[0], 0.0, 1e-6);
+        approx_eq(torso.pelvis_center[1], 0.0, 1e-6);
+        approx_eq(torso.pelvis_center[2], 1.0, 1e-6);
+
+        approx_eq(torso.shoulder_center[0], 0.0, 1e-6);
+        approx_eq(torso.shoulder_center[2], 1.5, 1e-6);
+
+        approx_eq(torso.torso_up.length, 0.6, 1e-6);
+        approx_eq(torso.shoulder_axis.length, 0.4, 1e-6);
+        approx_eq(torso.hip_axis.length, 0.3, 1e-6);
+    }
+
+    #[test]
+    fn print_torso_landmarks() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 0.99,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.62],
+                confidence: 0.97,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftShoulder,
+                position: [-0.23, 0.02, 1.50],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::RightShoulder,
+                position: [0.21, -0.01, 1.49],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftHip,
+                position: [-0.14, 0.01, 1.01],
+                confidence: 0.96,
+            },
+            NamedJoint {
+                joint_id: JointId::RightHip,
+                position: [0.16, -0.02, 0.99],
+                confidence: 0.96,
+            },
+        ];
+
+        let torso = compute_torso_landmarks(&joints);
+        println!("torso: {torso:?}");
+
+        debug_print_torso_landmarks(&joints);
+
+        assert!(torso.torso_up_ok);
+        assert!(torso.shoulder_axis_ok);
+        assert!(torso.hip_axis_ok);
     }
 }

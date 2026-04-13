@@ -205,3 +205,112 @@ void blender_shim_debug_print_simple_chain(
 
     std::fflush(stdout);
 }
+
+
+static BlenderShimVec3 midpoint_vec3(BlenderShimVec3 a, BlenderShimVec3 b)
+{
+    BlenderShimVec3 out{};
+    out.x = 0.5f * (a.x + b.x);
+    out.y = 0.5f * (a.y + b.y);
+    out.z = 0.5f * (a.z + b.z);
+    return out;
+}
+
+BlenderShimTorsoLandmarksResult blender_shim_compute_torso_landmarks(
+    const BlenderShimNamedJoint *joints,
+    int joint_count)
+{
+    BlenderShimTorsoLandmarksResult result{};
+
+    result.pelvis_found =
+        find_joint(joints, joint_count, BLENDER_SHIM_JOINT_PELVIS, &result.pelvis);
+    result.neck_found =
+        find_joint(joints, joint_count, BLENDER_SHIM_JOINT_NECK, &result.neck);
+    result.left_shoulder_found =
+        find_joint(joints, joint_count, BLENDER_SHIM_JOINT_LEFT_SHOULDER, &result.left_shoulder);
+    result.right_shoulder_found =
+        find_joint(joints, joint_count, BLENDER_SHIM_JOINT_RIGHT_SHOULDER, &result.right_shoulder);
+    result.left_hip_found =
+        find_joint(joints, joint_count, BLENDER_SHIM_JOINT_LEFT_HIP, &result.left_hip);
+    result.right_hip_found =
+        find_joint(joints, joint_count, BLENDER_SHIM_JOINT_RIGHT_HIP, &result.right_hip);
+
+    if (result.left_hip_found && result.right_hip_found) {
+        result.pelvis_center = midpoint_vec3(result.left_hip, result.right_hip);
+        result.pelvis_center_ok = 1;
+        result.hip_axis =
+            blender_shim_make_bone_from_joints(result.left_hip, result.right_hip);
+        result.hip_axis_ok = result.hip_axis.ok;
+    }
+
+    if (result.left_shoulder_found && result.right_shoulder_found) {
+        result.shoulder_center = midpoint_vec3(result.left_shoulder, result.right_shoulder);
+        result.shoulder_center_ok = 1;
+        result.shoulder_axis =
+            blender_shim_make_bone_from_joints(result.left_shoulder, result.right_shoulder);
+        result.shoulder_axis_ok = result.shoulder_axis.ok;
+    }
+
+    if (result.pelvis_center_ok && result.neck_found) {
+        result.torso_up =
+            blender_shim_make_bone_from_joints(result.pelvis_center, result.neck);
+        result.torso_up_ok = result.torso_up.ok;
+    }
+
+    return result;
+}
+
+void blender_shim_debug_print_torso_landmarks(
+    const BlenderShimNamedJoint *joints,
+    int joint_count)
+{
+    const BlenderShimTorsoLandmarksResult r =
+        blender_shim_compute_torso_landmarks(joints, joint_count);
+
+    std::printf(
+        "[blender_shim] torso_landmarks: "
+        "pelvis=%d neck=%d lsho=%d rsho=%d lhip=%d rhip=%d\n",
+        r.pelvis_found,
+        r.neck_found,
+        r.left_shoulder_found,
+        r.right_shoulder_found,
+        r.left_hip_found,
+        r.right_hip_found);
+
+    if (r.pelvis_center_ok) {
+        std::printf(
+            "  pelvis_center   =(%.6f, %.6f, %.6f)\n",
+            r.pelvis_center.x, r.pelvis_center.y, r.pelvis_center.z);
+    }
+    if (r.shoulder_center_ok) {
+        std::printf(
+            "  shoulder_center =(%.6f, %.6f, %.6f)\n",
+            r.shoulder_center.x, r.shoulder_center.y, r.shoulder_center.z);
+    }
+    if (r.torso_up_ok) {
+        std::printf(
+            "  torso_up     len=%.6f dir=(%.6f, %.6f, %.6f)\n",
+            r.torso_up.length,
+            r.torso_up.direction_unit.x,
+            r.torso_up.direction_unit.y,
+            r.torso_up.direction_unit.z);
+    }
+    if (r.shoulder_axis_ok) {
+        std::printf(
+            "  shoulder_axis len=%.6f dir=(%.6f, %.6f, %.6f)\n",
+            r.shoulder_axis.length,
+            r.shoulder_axis.direction_unit.x,
+            r.shoulder_axis.direction_unit.y,
+            r.shoulder_axis.direction_unit.z);
+    }
+    if (r.hip_axis_ok) {
+        std::printf(
+            "  hip_axis      len=%.6f dir=(%.6f, %.6f, %.6f)\n",
+            r.hip_axis.length,
+            r.hip_axis.direction_unit.x,
+            r.hip_axis.direction_unit.y,
+            r.hip_axis.direction_unit.z);
+    }
+
+    std::fflush(stdout);
+}

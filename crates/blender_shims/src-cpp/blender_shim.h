@@ -11,6 +11,7 @@
 extern "C" {
 #endif
 
+
 int blender_shim_version_major();
 int blender_shim_version_minor();
 int blender_shim_version_patch();
@@ -66,6 +67,11 @@ typedef enum BlenderShimJointId {
     BLENDER_SHIM_JOINT_PELVIS = 0,
     BLENDER_SHIM_JOINT_SPINE = 1,
     BLENDER_SHIM_JOINT_NECK = 2,
+
+    BLENDER_SHIM_JOINT_LEFT_SHOULDER = 3,
+    BLENDER_SHIM_JOINT_RIGHT_SHOULDER = 4,
+    BLENDER_SHIM_JOINT_LEFT_HIP = 5,
+    BLENDER_SHIM_JOINT_RIGHT_HIP = 6,
 } BlenderShimJointId;
 
 typedef struct BlenderShimNamedJoint {
@@ -97,6 +103,44 @@ BlenderShimSimpleChainResult blender_shim_fit_simple_chain( const BlenderShimNam
  * Debug helper that prints the fitted simple chain.
  */
 void blender_shim_debug_print_simple_chain( const BlenderShimNamedJoint *joints, int joint_count);
+
+
+typedef struct BlenderShimTorsoLandmarksResult {
+    int pelvis_found;
+    int neck_found;
+    int left_shoulder_found;
+    int right_shoulder_found;
+    int left_hip_found;
+    int right_hip_found;
+
+    int pelvis_center_ok;
+    int shoulder_center_ok;
+    int torso_up_ok;
+    int shoulder_axis_ok;
+    int hip_axis_ok;
+
+    BlenderShimVec3 pelvis;
+    BlenderShimVec3 neck;
+    BlenderShimVec3 left_shoulder;
+    BlenderShimVec3 right_shoulder;
+    BlenderShimVec3 left_hip;
+    BlenderShimVec3 right_hip;
+
+    BlenderShimVec3 pelvis_center;
+    BlenderShimVec3 shoulder_center;
+
+    BlenderShimBoneFromJointsResult torso_up;
+    BlenderShimBoneFromJointsResult shoulder_axis;
+    BlenderShimBoneFromJointsResult hip_axis;
+} BlenderShimTorsoLandmarksResult;
+
+BlenderShimTorsoLandmarksResult blender_shim_compute_torso_landmarks(
+    const BlenderShimNamedJoint *joints,
+    int joint_count);
+
+void blender_shim_debug_print_torso_landmarks(
+    const BlenderShimNamedJoint *joints,
+    int joint_count);
 
 #ifdef __cplusplus
 }
