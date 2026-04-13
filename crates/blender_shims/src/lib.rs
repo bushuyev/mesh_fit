@@ -51,6 +51,14 @@ unsafe extern "C" {
         joints: *const BlenderShimNamedJoint,
         joint_count: c_int,
     );
+
+    fn blender_shim_validate_armature_desc(
+        armature: *const BlenderShimArmatureDesc,
+    ) -> BlenderShimArmatureValidationResult;
+
+    fn blender_shim_debug_print_armature_desc(
+        armature: *const BlenderShimArmatureDesc,
+    );
 }
 
 #[repr(C)]
@@ -455,6 +463,140 @@ pub fn debug_print_torso_frame(joints: &[NamedJoint]) {
         blender_shim_debug_print_torso_frame(ffi_joints.as_ptr(), ffi_joints.len() as c_int);
     }
 }
+
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct BlenderShimBoneDesc {
+    pub name: *const c_char,
+    pub parent_index: i32,
+    pub head: BlenderShimVec3,
+    pub tail: BlenderShimVec3,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct BlenderShimArmatureDesc {
+    pub bones: *const BlenderShimBoneDesc,
+    pub bone_count: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlenderShimArmatureValidationResult {
+    pub ok: i32,
+    pub has_invalid_parent: i32,
+    pub has_degenerate_bone: i32,
+    pub first_invalid_bone_index: i32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoneDesc {
+    pub name: String,
+    pub parent_index: i32,
+    pub head: [f32; 3],
+    pub tail: [f32; 3],
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArmatureDesc {
+    pub bones: Vec<BoneDesc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ArmatureValidationResult {
+    pub ok: bool,
+    pub has_invalid_parent: bool,
+    pub has_degenerate_bone: bool,
+    pub first_invalid_bone_index: i32,
+}
+
+pub fn make_simple_torso_armature(frame: &TorsoFrame) -> ArmatureDesc {
+    let pelvis = frame.landmarks.pelvis_center;
+    let spine = frame.landmarks.shoulder_center;
+    let neck = frame.landmarks.neck;
+
+    ArmatureDesc {
+        bones: vec![
+            BoneDesc {
+                name: "pelvis".to_string(),
+                parent_index: -1,
+                head: pelvis,
+                tail: spine,
+            },
+            BoneDesc {
+                name: "spine".to_string(),
+                parent_index: 0,
+                head: spine,
+                tail: neck,
+            },
+        ],
+    }
+}
+
+pub fn validate_armature_desc(armature: &ArmatureDesc) -> ArmatureValidationResult {
+    let c_names: Vec<CString> = armature
+        .bones
+        .iter()
+        .map(|b| CString::new(b.name.as_str()).expect("bone name must not contain interior NUL bytes"))
+        .collect();
+
+    let ffi_bones: Vec<BlenderShimBoneDesc> = armature
+        .bones
+        .iter()
+        .zip(c_names.iter())
+        .map(|(b, name)| BlenderShimBoneDesc {
+            name: name.as_ptr(),
+            parent_index: b.parent_index,
+            head: to_ffi_vec3(b.head),
+            tail: to_ffi_vec3(b.tail),
+        })
+        .collect();
+
+    let ffi_armature = BlenderShimArmatureDesc {
+        bones: ffi_bones.as_ptr(),
+        bone_count: ffi_bones.len() as i32,
+    };
+
+    let result = unsafe { blender_shim_validate_armature_desc(&ffi_armature) };
+
+    ArmatureValidationResult {
+        ok: result.ok != 0,
+        has_invalid_parent: result.has_invalid_parent != 0,
+        has_degenerate_bone: result.has_degenerate_bone != 0,
+        first_invalid_bone_index: result.first_invalid_bone_index,
+    }
+}
+
+pub fn debug_print_armature_desc(armature: &ArmatureDesc) {
+    let c_names: Vec<CString> = armature
+        .bones
+        .iter()
+        .map(|b| CString::new(b.name.as_str()).expect("bone name must not contain interior NUL bytes"))
+        .collect();
+
+    let ffi_bones: Vec<BlenderShimBoneDesc> = armature
+        .bones
+        .iter()
+        .zip(c_names.iter())
+        .map(|(b, name)| BlenderShimBoneDesc {
+            name: name.as_ptr(),
+            parent_index: b.parent_index,
+            head: to_ffi_vec3(b.head),
+            tail: to_ffi_vec3(b.tail),
+        })
+        .collect();
+
+    let ffi_armature = BlenderShimArmatureDesc {
+        bones: ffi_bones.as_ptr(),
+        bone_count: ffi_bones.len() as i32,
+    };
+
+    unsafe {
+        blender_shim_debug_print_armature_desc(&ffi_armature);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -800,5 +942,101 @@ mod tests {
         debug_print_torso_frame(&joints);
 
         assert!(frame.basis.ok);
+    }
+
+    #[test]
+    fn simple_torso_armature_desc_works() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.62],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftShoulder,
+                position: [-0.23, 0.02, 1.50],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::RightShoulder,
+                position: [0.21, -0.01, 1.49],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftHip,
+                position: [-0.14, 0.01, 1.01],
+                confidence: 1.0,
+            },
+            NamedJoint {
+                joint_id: JointId::RightHip,
+                position: [0.16, -0.02, 0.99],
+                confidence: 1.0,
+            },
+        ];
+
+        let frame = compute_torso_frame(&joints);
+        assert!(frame.basis.ok);
+
+        let armature = make_simple_torso_armature(&frame);
+        assert_eq!(armature.bones.len(), 2);
+
+        let validation = validate_armature_desc(&armature);
+        assert!(validation.ok);
+        assert!(!validation.has_invalid_parent);
+        assert!(!validation.has_degenerate_bone);
+        assert_eq!(validation.first_invalid_bone_index, -1);
+    }
+
+
+    #[test]
+    fn print_simple_torso_armature_desc() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 0.99,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.62],
+                confidence: 0.97,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftShoulder,
+                position: [-0.23, 0.02, 1.50],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::RightShoulder,
+                position: [0.21, -0.01, 1.49],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftHip,
+                position: [-0.14, 0.01, 1.01],
+                confidence: 0.96,
+            },
+            NamedJoint {
+                joint_id: JointId::RightHip,
+                position: [0.16, -0.02, 0.99],
+                confidence: 0.96,
+            },
+        ];
+
+        let frame = compute_torso_frame(&joints);
+        let armature = make_simple_torso_armature(&frame);
+
+        println!("armature: {armature:#?}");
+        debug_print_armature_desc(&armature);
+
+        let validation = validate_armature_desc(&armature);
+        println!("validation: {validation:?}");
+
+        assert!(validation.ok);
     }
 }

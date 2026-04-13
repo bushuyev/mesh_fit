@@ -439,3 +439,89 @@ void blender_shim_debug_print_torso_frame(
 
     std::fflush(stdout);
 }
+
+
+
+BlenderShimArmatureValidationResult blender_shim_validate_armature_desc(
+    const BlenderShimArmatureDesc *armature)
+{
+    BlenderShimArmatureValidationResult result{};
+    result.ok = 1;
+    result.first_invalid_bone_index = -1;
+
+    if (armature == nullptr || armature->bones == nullptr || armature->bone_count < 0) {
+        result.ok = 0;
+        result.first_invalid_bone_index = -1;
+        return result;
+    }
+
+    for (int i = 0; i < armature->bone_count; ++i) {
+        const BlenderShimBoneDesc &bone = armature->bones[i];
+
+        if (bone.parent_index >= armature->bone_count || bone.parent_index < -1) {
+            result.ok = 0;
+            result.has_invalid_parent = 1;
+            result.first_invalid_bone_index = i;
+            return result;
+        }
+
+        const BlenderShimBoneFromJointsResult shape =
+            blender_shim_make_bone_from_joints(bone.head, bone.tail);
+
+        if (!shape.ok) {
+            result.ok = 0;
+            result.has_degenerate_bone = 1;
+            result.first_invalid_bone_index = i;
+            return result;
+        }
+    }
+
+    return result;
+}
+
+void blender_shim_debug_print_armature_desc(
+    const BlenderShimArmatureDesc *armature)
+{
+    if (armature == nullptr) {
+        std::printf("[blender_shim] armature_desc: <null>\n");
+        std::fflush(stdout);
+        return;
+    }
+
+    std::printf(
+        "[blender_shim] armature_desc: bone_count=%d\n",
+        armature->bone_count);
+
+    for (int i = 0; i < armature->bone_count; ++i) {
+        const BlenderShimBoneDesc &bone = armature->bones[i];
+        const char *name = bone.name != nullptr ? bone.name : "<null>";
+
+        const BlenderShimBoneFromJointsResult shape =
+            blender_shim_make_bone_from_joints(bone.head, bone.tail);
+
+        std::printf(
+            "  bone[%d] name=%s parent=%d "
+            "head=(%.6f, %.6f, %.6f) "
+            "tail=(%.6f, %.6f, %.6f) "
+            "len=%.6f ok=%d\n",
+            i,
+            name,
+            bone.parent_index,
+            bone.head.x, bone.head.y, bone.head.z,
+            bone.tail.x, bone.tail.y, bone.tail.z,
+            shape.length,
+            shape.ok);
+    }
+
+    const BlenderShimArmatureValidationResult validation =
+        blender_shim_validate_armature_desc(armature);
+
+    std::printf(
+        "  validation: ok=%d invalid_parent=%d degenerate=%d first_bad=%d\n",
+        validation.ok,
+        validation.has_invalid_parent,
+        validation.has_degenerate_bone,
+        validation.first_invalid_bone_index);
+
+    std::fflush(stdout);
+}

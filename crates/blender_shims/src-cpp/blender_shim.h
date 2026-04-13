@@ -164,6 +164,33 @@ void blender_shim_debug_print_torso_frame(
     const BlenderShimNamedJoint *joints,
     int joint_count);
 
+
+
+typedef struct BlenderShimBoneDesc {
+    const char *name;
+    int parent_index; /* -1 if root */
+    BlenderShimVec3 head;
+    BlenderShimVec3 tail;
+} BlenderShimBoneDesc;
+
+typedef struct BlenderShimArmatureDesc {
+    const BlenderShimBoneDesc *bones;
+    int bone_count;
+} BlenderShimArmatureDesc;
+
+typedef struct BlenderShimArmatureValidationResult {
+    int ok;
+    int has_invalid_parent;
+    int has_degenerate_bone;
+    int first_invalid_bone_index;
+} BlenderShimArmatureValidationResult;
+
+BlenderShimArmatureValidationResult blender_shim_validate_armature_desc(
+    const BlenderShimArmatureDesc *armature);
+
+void blender_shim_debug_print_armature_desc(
+    const BlenderShimArmatureDesc *armature);
+
 #ifdef __cplusplus
 }
 #endif
