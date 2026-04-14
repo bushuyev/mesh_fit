@@ -191,6 +191,16 @@ BlenderShimArmatureValidationResult blender_shim_validate_armature_desc(
 void blender_shim_debug_print_armature_desc(
     const BlenderShimArmatureDesc *armature);
 
+typedef struct BlenderShimWriteBlendResult {
+    int ok;
+} BlenderShimWriteBlendResult;
+
+BlenderShimWriteBlendResult blender_shim_write_armature_desc_to_blend(
+    const BlenderShimArmatureDesc *armature,
+    const char *blend_path,
+    char *error_out,
+    int error_out_size);
+
 #ifdef __cplusplus
 }
 #endif

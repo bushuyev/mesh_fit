@@ -1,9 +1,35 @@
 #include "blender_shim.h"
-
+#include <vector>
 #include <cstdio>
 
 #include "BKE_blender_version.h"
 #include "BLI_math_vector.h"
+#include "BLI_threads.h"
+#include "BKE_armature.hh"
+#include "BKE_collection.hh"
+#include "BKE_idtype.hh"
+#include "BKE_lib_id.hh"
+#include "BKE_main.hh"
+#include "BKE_object.hh"
+
+
+#include "BKE_report.hh"
+#include "BKE_scene.hh"
+
+#include "BLO_writefile.hh"
+
+#include "DNA_armature_types.h"
+#include "DNA_object_types.h"
+#include "DNA_scene_types.h"
+
+#include "ED_armature.hh"
+#include "IMB_imbuf.hh"
+#include "MEM_guardedalloc.h"
+#include "BKE_blender.hh"
+#include "BKE_callbacks.hh"
+#include "BKE_appdir.hh"
+#include "CLG_log.h"
+#include "DNA_genfile.h"
 
 using namespace blender;
 
@@ -29,6 +55,35 @@ int blender_shim_version_string(char *out, int out_size) {
     }
 
     return std::snprintf(out, static_cast<std::size_t>(out_size), "%d.%d.%d", major, minor, patch);
+}
+
+static std::once_flag g_blender_init_once;
+
+
+static void blender_shim_global_init(const char *argv0)
+{
+    std::call_once(g_blender_init_once, [argv0]() {
+
+        CLG_init();
+        CLG_output_use_timestamp_set(true);
+        CLG_output_use_memory_set(false);
+        CLG_output_use_source_set(false);
+        CLG_output_use_basename_set(false);
+        BKE_appdir_program_path_init(argv0 ? argv0 : "embedded_blender");
+        DNA_sdna_current_init();
+        BKE_blender_globals_init();
+        BKE_idtype_init();
+        BKE_callback_global_init();
+
+        BLI_threadapi_init();
+
+
+        IMB_init();
+        // BKE_images_init();          // if available in your Blender version
+        // BKE_node_system_init();
+
+
+    });
 }
 
 float blender_shim_normalize_vec3(const float in[3], float out[3]) {
@@ -524,4 +579,128 @@ void blender_shim_debug_print_armature_desc(
         validation.first_invalid_bone_index);
 
     std::fflush(stdout);
+}
+
+
+static void blender_shim_set_error(char *out, int out_size, const char *msg)
+{
+    if (out == nullptr || out_size <= 0) {
+        return;
+    }
+    std::snprintf(out, static_cast<std::size_t>(out_size), "%s", msg ? msg : "unknown error");
+}
+
+static void copy_vec3_to_raw(BlenderShimVec3 v, float out[3])
+{
+     out[0] = v.x;
+     out[1] = v.y;
+     out[2] = v.z;
+}
+
+static Object *blender_shim_create_armature_object_from_desc(
+    Main *bmain,
+    const BlenderShimArmatureDesc *armature_desc)
+{
+    bArmature *arm = BKE_armature_add(bmain, "RTMW_Armature");
+    Object *obj = BKE_object_add_only_object(bmain, OB_ARMATURE, "RTMW_Armature");
+    obj->data = &arm->id;
+    id_us_plus(&arm->id);
+
+    ED_armature_to_edit(arm);
+
+    std::vector<EditBone *> created;
+    created.resize(armature_desc->bone_count, nullptr);
+
+    for (int i = 0; i < armature_desc->bone_count; ++i) {
+        const BlenderShimBoneDesc &src = armature_desc->bones[i];
+        const char *name = src.name ? src.name : "Bone";
+
+        EditBone *ebone = ED_armature_ebone_add(arm, name);
+        created[i] = ebone;
+
+        copy_vec3_to_raw(src.head, ebone->head);
+        copy_vec3_to_raw(src.tail, ebone->tail);
+    }
+
+    for (int i = 0; i < armature_desc->bone_count; ++i) {
+        const BlenderShimBoneDesc &src = armature_desc->bones[i];
+        EditBone *ebone = created[i];
+
+        if (src.parent_index >= 0) {
+            ebone->parent = created[src.parent_index];
+        }
+    }
+
+    ED_armature_from_edit(bmain, arm);
+    ED_armature_edit_free(arm);
+    BKE_armature_bone_hash_make(arm);
+
+    return obj;
+}
+
+BlenderShimWriteBlendResult blender_shim_write_armature_desc_to_blend(
+    const BlenderShimArmatureDesc *armature,
+    const char *blend_path,
+    char *error_out,
+    int error_out_size)
+{
+
+
+    BlenderShimWriteBlendResult result{};
+    result.ok = 0;
+
+    if (armature == nullptr) {
+        blender_shim_set_error(error_out, error_out_size, "armature is null");
+        return result;
+    }
+
+    if (blend_path == nullptr || blend_path[0] == '\0') {
+        blender_shim_set_error(error_out, error_out_size, "blend_path is empty");
+        return result;
+    }
+
+    fprintf(stderr, "blender_shim_write_armature_desc_to_blend:0 \n");
+
+    const BlenderShimArmatureValidationResult validation = blender_shim_validate_armature_desc(armature);
+    if (!validation.ok) {
+        blender_shim_set_error(error_out, error_out_size, "armature validation failed");
+        return result;
+    }
+
+    fprintf(stderr, "blender_shim_write_armature_desc_to_blend: 1\n");
+
+    blender_shim_global_init(nullptr);
+
+
+    Main *bmain = BKE_main_new();
+
+    Scene *scene = BKE_scene_add(bmain, "Scene");
+
+    Object *obj = blender_shim_create_armature_object_from_desc(bmain, armature);
+
+
+    BKE_collection_object_add(bmain, scene->master_collection, obj);
+
+
+    ReportList reports;
+    BKE_reports_init(&reports, RPT_STORE);
+
+
+    BlendFileWriteParams params{};
+    const bool ok = BLO_write_file(bmain, blend_path, 0, &params, &reports);
+
+
+    if (!ok) {
+        BKE_reports_free(&reports);
+        BKE_main_free(bmain);
+        blender_shim_set_error(error_out, error_out_size, "BLO_write_file failed");
+        return result;
+    }
+
+    BKE_reports_free(&reports);
+    BKE_main_free(bmain);
+
+    result.ok = 1;
+    blender_shim_set_error(error_out, error_out_size, "");
+    return result;
 }

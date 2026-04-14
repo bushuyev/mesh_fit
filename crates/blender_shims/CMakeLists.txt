@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(blender_shim LANGUAGES C CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -23,6 +23,18 @@ set(BLENDER_BLENKERNEL_DIR
         "${BLENDER_SOURCE_DIR}/source/blender/blenkernel")
 set(BLENDER_BLENLIB_DIR
         "${BLENDER_SOURCE_DIR}/source/blender/blenlib")
+set(BLENDER_GUARDEDALLOC_DIR
+        "${BLENDER_SOURCE_DIR}/intern/guardedalloc")
+set(BLENDER_CLOG_DIR
+        "${BLENDER_SOURCE_DIR}/intern/clog")
+set(BLENDER_MAKESDNA_DIR
+        "${BLENDER_SOURCE_DIR}/source/blender/makesdna")
+set(BLENDER_BLENLOADER_DIR
+        "${BLENDER_SOURCE_DIR}/source/blender/blenloader")
+set(BLENDER_IMBUF_DIR
+        "${BLENDER_SOURCE_DIR}/source/blender/imbuf")
+set(BLENDER_EDITORS_DIR
+        "${BLENDER_SOURCE_DIR}/source/blender/editors/include")
 
 add_library(blender_shim STATIC
         src-cpp/blender_shim.cpp
@@ -33,6 +45,12 @@ target_include_directories(blender_shim
         "${CMAKE_CURRENT_SOURCE_DIR}/src-cpp"
         "${BLENDER_BLENKERNEL_DIR}"
         "${BLENDER_BLENLIB_DIR}"
+        "${BLENDER_GUARDEDALLOC_DIR}"
+        "${BLENDER_CLOG_DIR}"
+        "${BLENDER_MAKESDNA_DIR}"
+        "${BLENDER_BLENLOADER_DIR}"
+        "${BLENDER_EDITORS_DIR}"
+        "${BLENDER_IMBUF_DIR}"
 )
 
 target_compile_features(blender_shim PUBLIC cxx_std_17)

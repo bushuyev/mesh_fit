@@ -59,6 +59,13 @@ unsafe extern "C" {
     fn blender_shim_debug_print_armature_desc(
         armature: *const BlenderShimArmatureDesc,
     );
+
+    fn blender_shim_write_armature_desc_to_blend(
+        armature: *const BlenderShimArmatureDesc,
+        blend_path: *const c_char,
+        error_out: *mut c_char,
+        error_out_size: c_int,
+    ) -> BlenderShimWriteBlendResult;
 }
 
 #[repr(C)]
@@ -597,6 +604,76 @@ pub fn debug_print_armature_desc(armature: &ArmatureDesc) {
     }
 }
 
+pub fn write_armature_desc_to_blend(
+    armature: &ArmatureDesc,
+    blend_path: &std::path::Path,
+) -> Result<(), String> {
+    let c_names: Vec<CString> = armature
+        .bones
+        .iter()
+        .map(|b| CString::new(b.name.as_str()).expect("bone name must not contain interior NUL bytes"))
+        .collect();
+
+    let ffi_bones: Vec<BlenderShimBoneDesc> = armature
+        .bones
+        .iter()
+        .zip(c_names.iter())
+        .map(|(b, name)| BlenderShimBoneDesc {
+            name: name.as_ptr(),
+            parent_index: b.parent_index,
+            head: to_ffi_vec3(b.head),
+            tail: to_ffi_vec3(b.tail),
+        })
+        .collect();
+
+    let ffi_armature = BlenderShimArmatureDesc {
+        bones: ffi_bones.as_ptr(),
+        bone_count: ffi_bones.len() as i32,
+    };
+
+
+    let blend_path = CString::new(
+        blend_path
+            .to_str()
+            .ok_or_else(|| "blend_path is not valid UTF-8".to_string())?,
+    )
+        .map_err(|_| "blend_path contains interior NUL byte".to_string())?;
+
+    let mut err_buf = vec![0u8; 1024];
+
+    let result = unsafe {
+        blender_shim_write_armature_desc_to_blend(
+            &ffi_armature,
+            blend_path.as_ptr(),
+            err_buf.as_mut_ptr() as *mut c_char,
+            err_buf.len() as c_int,
+        )
+    };
+
+    if result.ok != 0 {
+        Ok(())
+    } else {
+        let msg = unsafe {
+            CStr::from_ptr(err_buf.as_ptr() as *const c_char)
+                .to_string_lossy()
+                .into_owned()
+        };
+        Err(if msg.is_empty() {
+            "failed to write blend file".to_string()
+        } else {
+            msg
+        })
+    }
+
+    // Err("aaa".to_string())
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlenderShimWriteBlendResult {
+    pub ok: i32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1038,5 +1115,52 @@ mod tests {
         println!("validation: {validation:?}");
 
         assert!(validation.ok);
+    }
+
+    #[test]
+    fn write_blend_file() {
+        let joints = [
+            NamedJoint {
+                joint_id: JointId::Pelvis,
+                position: [0.0, 0.0, 1.0],
+                confidence: 0.99,
+            },
+            NamedJoint {
+                joint_id: JointId::Neck,
+                position: [0.0, 0.0, 1.62],
+                confidence: 0.97,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftShoulder,
+                position: [-0.23, 0.02, 1.50],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::RightShoulder,
+                position: [0.21, -0.01, 1.49],
+                confidence: 0.98,
+            },
+            NamedJoint {
+                joint_id: JointId::LeftHip,
+                position: [-0.14, 0.01, 1.01],
+                confidence: 0.96,
+            },
+            NamedJoint {
+                joint_id: JointId::RightHip,
+                position: [0.16, -0.02, 0.99],
+                confidence: 0.96,
+            },
+        ];
+
+        let frame = compute_torso_frame(&joints);
+        let armature = make_simple_torso_armature(&frame);
+
+        let path = std::env::temp_dir().join("blender_shims_simple_torso_integration.blend");
+        write_armature_desc_to_blend(&armature, &path).unwrap();
+
+        println!("written: {}", path.display());
+
+        let meta = std::fs::metadata(&path).unwrap();
+        assert!(meta.len() > 0);
     }
 }
