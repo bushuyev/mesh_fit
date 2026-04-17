@@ -1,0 +1,6 @@
+[package]
+name = "meshfit_shared"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

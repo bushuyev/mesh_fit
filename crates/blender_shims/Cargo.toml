@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+meshfit_shared = {path = "../shared"}
 
 [build-dependencies]
 cmake = "0.1"
+

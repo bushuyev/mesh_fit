@@ -1,5 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int};
+use meshfit_shared::armature::{ArmatureDesc, BoneDesc};
 
 unsafe extern "C" {
     fn blender_shim_version_major() -> c_int;
@@ -497,19 +498,6 @@ pub struct BlenderShimArmatureValidationResult {
     pub first_invalid_bone_index: i32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct BoneDesc {
-    pub name: String,
-    pub parent_index: i32,
-    pub head: [f32; 3],
-    pub tail: [f32; 3],
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ArmatureDesc {
-    pub bones: Vec<BoneDesc>,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ArmatureValidationResult {
     pub ok: bool,
@@ -528,14 +516,14 @@ pub fn make_simple_torso_armature(frame: &TorsoFrame) -> ArmatureDesc {
             BoneDesc {
                 name: "pelvis".to_string(),
                 parent_index: -1,
-                head: pelvis,
-                tail: spine,
+                head: pelvis.into(),
+                tail: spine.into(),
             },
             BoneDesc {
                 name: "spine".to_string(),
                 parent_index: 0,
-                head: spine,
-                tail: neck,
+                head: spine.into(),
+                tail: neck.into(),
             },
         ],
     }
@@ -555,8 +543,8 @@ pub fn validate_armature_desc(armature: &ArmatureDesc) -> ArmatureValidationResu
         .map(|(b, name)| BlenderShimBoneDesc {
             name: name.as_ptr(),
             parent_index: b.parent_index,
-            head: to_ffi_vec3(b.head),
-            tail: to_ffi_vec3(b.tail),
+            head: to_ffi_vec3(b.head.into()),
+            tail: to_ffi_vec3(b.tail.into()),
         })
         .collect();
 
@@ -589,8 +577,8 @@ pub fn debug_print_armature_desc(armature: &ArmatureDesc) {
         .map(|(b, name)| BlenderShimBoneDesc {
             name: name.as_ptr(),
             parent_index: b.parent_index,
-            head: to_ffi_vec3(b.head),
-            tail: to_ffi_vec3(b.tail),
+            head: to_ffi_vec3(b.head.into()),
+            tail: to_ffi_vec3(b.tail.into()),
         })
         .collect();
 
@@ -621,8 +609,8 @@ pub fn write_armature_desc_to_blend(
         .map(|(b, name)| BlenderShimBoneDesc {
             name: name.as_ptr(),
             parent_index: b.parent_index,
-            head: to_ffi_vec3(b.head),
-            tail: to_ffi_vec3(b.tail),
+            head: to_ffi_vec3(b.head.into()),
+            tail: to_ffi_vec3(b.tail.into()),
         })
         .collect();
 

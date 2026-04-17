@@ -1,8 +1,9 @@
 use std::path::PathBuf;
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use image::{DynamicImage, RgbImage};
 use ndarray::{Array4, ArrayView1, Axis, Ix3};
 use ort::{session::Session, value::TensorRef};
+use meshfit_shared::armature::Keypoint3D;
 
 const INPUT_W: usize = 288;
 const INPUT_H: usize = 384;
@@ -23,14 +24,6 @@ pub struct BBox {
     pub y1: f32,
     pub x2: f32,
     pub y2: f32,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Keypoint3D {
-    pub x: f32,      // original image x
-    pub y: f32,      // original image y
-    pub z_rel: f32,  // root-relative z from codec decode
-    pub score: f32,  // SimCC score (not a calibrated probability)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -108,7 +101,7 @@ impl Rtmw3d {
                     x: f32::NAN,
                     y: f32::NAN,
                     z_rel: f32::NAN,
-                    score,
+                    // score,
                 });
                 continue;
             }
@@ -131,7 +124,7 @@ impl Rtmw3d {
                 x: img_x,
                 y: img_y,
                 z_rel,
-                score,
+                // score,
             });
         }
 
@@ -237,7 +230,7 @@ fn argmax_and_max(v: ArrayView1<'_, f32>) -> (usize, f32) {
 
 // Example usage:
 //
-pub(crate) fn run_rtm_w3d(model_path: PathBuf, img:&DynamicImage, bbox:BBox) -> Result<()> {
+pub(crate) fn run_rtm_w3d(model_path: PathBuf, img:&DynamicImage, bbox:BBox) -> Result<[Keypoint3D; 133]> {
     let mut model = Rtmw3d::new(model_path)?;
 
     // bbox from RTMDet in original image coordinates
@@ -247,9 +240,9 @@ pub(crate) fn run_rtm_w3d(model_path: PathBuf, img:&DynamicImage, bbox:BBox) -> 
     for (i, kp) in kpts.iter().enumerate() {
         println!(
             // "#{i:03}: x={:.1}, y={:.1}, z_rel={:.4}, score={:.4}",
-            "KEYPOINTS_133[{i}] = ({:.1}, {:.1}, {:.4}, {:.4}) ",
-            kp.x, kp.y, kp.z_rel, kp.score
+            "KEYPOINTS_133[{i}] = ({:.1}, {:.1}, {:.4},) ",// {:.4}
+            kp.x, kp.y, kp.z_rel, //, kp.score
         );
     }
-    Ok(())
+    kpts.try_into() .map_err(|v: Vec<Keypoint3D>| anyhow!("expected exactly 33 elements, got {}", v.len()))
 }

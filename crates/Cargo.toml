@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["blender_shims","main"]
+members = ["blender_shims","main", "shared"]
 
 
 [workspace.package]

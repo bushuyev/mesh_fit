@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
+
     let crate_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
 
     let blender_source_dir =
@@ -27,6 +28,13 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", dst.join("lib").display());
     println!("cargo:rustc-link-lib=static=blender_shim");
     println!("cargo:rustc-link-lib=dylib=stdc++");
+    println!("cargo:rustc-link-lib=dylib=atomic");
+    println!("cargo:rustc-link-lib=dylib=util");
+    println!("cargo:rustc-link-lib=dylib=c");
+    println!("cargo:rustc-link-lib=dylib=m");
+    println!("cargo:rustc-link-lib=dylib=dl");
+    println!("cargo:rustc-link-lib=dylib=rt");
+    println!("cargo:rustc-link-lib=dylib=pthread");
 
     let link_txt =
         Path::new(&blender_build_dir).join("source/creator/CMakeFiles/blender.dir/link.txt");
@@ -37,16 +45,16 @@ fn main() {
 
     let tokens = shell_split(&link_line);
 
-    let link_base_dir = link_txt
-        .parent()
-        .and_then(Path::parent)
-        .and_then(Path::parent)
-        .unwrap();
+    // IMPORTANT:
+    // Paths in link.txt are relative to the working dir used for linking,
+    // which is .../blender_build/source/creator
+    let creator_dir = Path::new(&blender_build_dir).join("source/creator");
 
-    emit_link_directives(&tokens, link_base_dir);
+    emit_link_directives(&tokens, &creator_dir);
+
 }
 
-fn emit_link_directives(tokens: &[String], link_base_dir: &Path) {
+fn emit_link_directives(tokens: &[String], base_dir: &Path) {
     let mut seen_search = BTreeSet::new();
     let mut seen_lib = BTreeSet::new();
     let mut seen_arg = BTreeSet::new();
@@ -69,17 +77,21 @@ fn emit_link_directives(tokens: &[String], link_base_dir: &Path) {
             continue;
         }
 
-        if tok == "-Wl,-Bstatic" {
-            static_mode = true;
-            continue;
-        }
-        if tok == "-Wl,-Bdynamic" {
-            static_mode = false;
-            continue;
+        match tok.as_str() {
+            "-Wl,-Bstatic" => {
+                static_mode = true;
+                continue;
+            }
+            "-Wl,-Bdynamic" => {
+                static_mode = false;
+                continue;
+            }
+            _ => {}
         }
 
         if let Some(path) = tok.strip_prefix("-L") {
-            let resolved = normalize_path(path, link_base_dir);
+            let resolved = normalize_path(path, base_dir);
+            eprintln!("LINK ARG: {resolved} 1");
             if seen_search.insert(resolved.clone()) {
                 println!("cargo:rustc-link-search=native={resolved}");
             }
@@ -99,10 +111,7 @@ fn emit_link_directives(tokens: &[String], link_base_dir: &Path) {
         }
 
         if tok.starts_with("-Wl,") {
-            if should_skip_linker_flag(tok) {
-                continue;
-            }
-            if seen_arg.insert(tok.clone()) {
+            if should_keep_linker_flag(tok) && seen_arg.insert(tok.clone()) {
                 println!("cargo:rustc-link-arg={tok}");
             }
             continue;
@@ -113,7 +122,8 @@ fn emit_link_directives(tokens: &[String], link_base_dir: &Path) {
         }
 
         if is_linkable_input(tok) {
-            let resolved = normalize_path(tok, link_base_dir);
+            let resolved = normalize_path(tok, base_dir);
+            eprintln!("LINK ARG: {resolved} 2");
 
             if should_skip_input_path(&resolved) {
                 continue;
@@ -141,11 +151,15 @@ fn normalize_path(raw: &str, base_dir: &Path) -> String {
 }
 
 fn looks_like_compiler(tok: &str) -> bool {
-    tok.ends_with("/c++")
-        || tok.ends_with("/g++")
-        || tok.ends_with("/clang++")
-        || tok.contains("g++-")
-        || tok.contains("clang++")
+    let name = Path::new(tok)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(tok);
+
+    matches!(name, "c++" | "g++" | "clang++" | "x86_64-linux-gnu-g++" | "x86_64-linux-gnu-c++")
+        || name.starts_with("g++-")
+        || name.starts_with("clang++-")
+        || name.starts_with("x86_64-linux-gnu-g++-")
 }
 
 fn is_linkable_input(tok: &str) -> bool {
@@ -166,24 +180,8 @@ fn should_skip_input_path(path: &str) -> bool {
         || path.ends_with("/creator_signals.cc.o")
 }
 
-fn should_skip_linker_flag(flag: &str) -> bool {
-    const SKIP_PREFIXES: &[&str] = &[
-        "-Wl,--version-script=",
-        "-Wl,--dependency-file=",
-        "-Wl,-soname,",
-    ];
-
-    const SKIP_EXACT: &[&str] = &[
-        "-Wl,--as-needed",
-        "-Wl,--gc-sections",
-        "-Wl,--start-group",
-        "-Wl,--end-group",
-        "-Wl,--eh-frame-hdr",
-        "-Wl,-z,noexecstack",
-        "-Wl,-z,relro,-z,now",
-    ];
-
-    SKIP_EXACT.contains(&flag) || SKIP_PREFIXES.iter().any(|p| flag.starts_with(p))
+fn should_keep_linker_flag(flag: &str) -> bool {
+    flag.starts_with("-Wl,-rpath,") || flag.starts_with("-Wl,-rpath-link,")
 }
 
 fn shell_split(input: &str) -> Vec<String> {

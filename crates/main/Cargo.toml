@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+meshfit_shared = {path = "../shared"}
+blender_shims = {path = "../blender_shims"}
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 gltf = { version = "1", features = ["import"] }
@@ -22,3 +24,7 @@ candle-examples = { version = "0.9.2", features = ["cuda"] }
 
 
 ort = { version = "2.0.0-rc.12", features = ["ndarray", "load-dynamic"] }
+
+
+[build-dependencies]
+cmake = "0.1"

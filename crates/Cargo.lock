@@ -318,6 +318,7 @@ name = "blender_shims"
 version = "0.1.0"
 dependencies = [
  "cmake",
+ "meshfit_shared",
 ]
 
 [[package]]
@@ -2223,14 +2224,17 @@ name = "mesh_train"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "blender_shims",
  "candle-core",
  "candle-examples",
  "candle-nn",
  "candle-transformers",
  "clap",
+ "cmake",
  "gltf",
  "hf-hub",
  "image",
+ "meshfit_shared",
  "ndarray 0.17.2",
  "ndarray-npy",
  "ort",
@@ -2238,6 +2242,10 @@ dependencies = [
  "serde_json",
  "tch",
 ]
+
+[[package]]
+name = "meshfit_shared"
+version = "0.1.0"
 
 [[package]]
 name = "mime"
