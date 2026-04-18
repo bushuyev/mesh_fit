@@ -45,6 +45,10 @@ set(BLENDER_EDITORS_DIR
 
 add_library(blender_shim STATIC
         src-cpp/blender_shim.cpp
+        src-cpp/armature.cpp
+        src-cpp/armature.h
+        src-cpp/utils.cpp
+        src-cpp/utils.h
 )
 
 target_include_directories(blender_shim
