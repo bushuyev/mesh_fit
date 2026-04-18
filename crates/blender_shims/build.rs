@@ -125,6 +125,11 @@ fn main() {
     println!("cargo:rerun-if-changed=CMakeLists.txt");
     println!("cargo:rerun-if-changed=src-cpp/blender_shim.cpp");
     println!("cargo:rerun-if-changed=src-cpp/blender_shim.h");
+    println!("cargo:rerun-if-changed=src-cpp/utils.cpp");
+    println!("cargo:rerun-if-changed=src-cpp/utils.h");
+    println!("cargo:rerun-if-changed=src-cpp/armature.cpp");
+    println!("cargo:rerun-if-changed=src-cpp/armature.h");
+
 
     // Build our tiny shim first.
     let dst = cmake::Config::new(&crate_dir)

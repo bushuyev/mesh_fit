@@ -430,37 +430,6 @@ BlenderShimTorsoFrameResult blender_shim_compute_torso_frame(
     return result;
 }
 
-void blender_shim_debug_print_torso_frame(
-    const BlenderShimNamedJoint *joints,
-    int joint_count)
-{
-    const BlenderShimTorsoFrameResult r =
-        blender_shim_compute_torso_frame(joints, joint_count);
-
-    std::printf(
-        "[blender_shim] torso_frame: basis_ok=%d\n",
-        r.basis.ok);
-
-    if (r.landmarks.pelvis_center_ok) {
-        std::printf(
-            "  origin=(%.6f, %.6f, %.6f)\n",
-            r.origin.x, r.origin.y, r.origin.z);
-    }
-
-    if (r.basis.ok) {
-        std::printf(
-            "  x_axis=(%.6f, %.6f, %.6f)\n",
-            r.basis.x_axis.x, r.basis.x_axis.y, r.basis.x_axis.z);
-        std::printf(
-            "  y_axis=(%.6f, %.6f, %.6f)\n",
-            r.basis.y_axis.x, r.basis.y_axis.y, r.basis.y_axis.z);
-        std::printf(
-            "  z_axis=(%.6f, %.6f, %.6f)\n",
-            r.basis.z_axis.x, r.basis.z_axis.y, r.basis.z_axis.z);
-    }
-
-    std::fflush(stdout);
-}
 
 
 
