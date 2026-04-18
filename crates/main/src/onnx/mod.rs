@@ -32,7 +32,10 @@ pub  fn run_onnx(args:OnnxArgs) -> anyhow::Result<()> {
 
     let bbox = rtm_det::run_rtm_det(args.det_model_path, &img)?;
     let key_points = rtm_w3d::run_rtm_w3d(args.w3d_model_path, &img, bbox)?;
-    let armature = make_rtmw3d_armature(&key_points);
+    let mut armature = make_rtmw3d_armature(
+        &key_points.into_iter().map(|v|[v.x, v.z_rel, -v.y].into()).collect::<Vec<_>>().try_into().unwrap()
+    );
+    armature.base_to("foot_big_toe.L");
 
     let path = std::env::temp_dir().join("blender_shims_simple_torso_integration.blend");
     write_armature_desc_to_blend(&armature, &path).unwrap();

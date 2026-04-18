@@ -54,10 +54,12 @@ pub fn make_rtmw3d_armature(points: &[Keypoint3D; 133]) -> ArmatureDesc {
         (bones.len() - 1) as i32
     };
 
-    let add_chain = |bones: &mut Vec<BoneDesc>,
-                     prefix: &str,
-                     parent_index: i32,
-                     chain: &[JointRef]| {
+    let add_chain = |
+        bones: &mut Vec<BoneDesc>,
+        prefix: &str,
+        parent_index: i32,
+        chain: &[JointRef]
+    | {
         let mut parent = parent_index;
         for i in 0..chain.len() - 1 {
             let name = format!("{prefix}_{i:02}");
