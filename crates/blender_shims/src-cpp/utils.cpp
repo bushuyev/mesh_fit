@@ -4,6 +4,37 @@
 #include <cstdio>
 #include "BLI_math_vector.h"
 #include "BKE_blender_version.h"
+
+#include <vector>
+
+
+#include "BLI_math_vector.h"
+#include "BLI_threads.h"
+#include "BKE_armature.hh"
+#include "BKE_collection.hh"
+#include "BKE_idtype.hh"
+#include "BKE_lib_id.hh"
+#include "BKE_main.hh"
+#include "BKE_object.hh"
+
+
+#include "BKE_report.hh"
+#include "BKE_scene.hh"
+
+#include "BLO_writefile.hh"
+
+#include "DNA_armature_types.h"
+#include "DNA_object_types.h"
+#include "DNA_scene_types.h"
+
+#include "ED_armature.hh"
+#include "IMB_imbuf.hh"
+#include "MEM_guardedalloc.h"
+#include "BKE_blender.hh"
+#include "BKE_callbacks.hh"
+#include "BKE_appdir.hh"
+#include "CLG_log.h"
+#include "DNA_genfile.h"
 #include "utils.h"
 
 
@@ -44,3 +75,6 @@ int blender_shim_version_string(char *out, int out_size) {
 float blender_shim_dot_vec3(const float a[3], const float b[3]) {
     return dot_v3v3(a, b);
 }
+
+
+
