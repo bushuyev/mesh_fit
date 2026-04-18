@@ -6,8 +6,15 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(NOT DEFINED BLENDER_SOURCE_DIR)
-    set(BLENDER_SOURCE_DIR "/home/bu/dvl/cpp/blender")
+if(NOT DEFINED BLENDER_SOURCE_DIR OR BLENDER_SOURCE_DIR STREQUAL "")
+    message(FATAL_ERROR
+            "BLENDER_SOURCE_DIR is missing or empty.\n"
+            "Please configure with -DBLENDER_SOURCE_DIR=/path/to/blender")
+endif()
+
+if(NOT IS_DIRECTORY "${BLENDER_SOURCE_DIR}")
+    message(FATAL_ERROR
+            "BLENDER_SOURCE_DIR does not point to a directory: ${BLENDER_SOURCE_DIR}")
 endif()
 
 set(BLENDER_VERSION_HEADER
@@ -53,7 +60,7 @@ target_include_directories(blender_shim
         "${BLENDER_IMBUF_DIR}"
 )
 
-target_compile_features(blender_shim PUBLIC cxx_std_17)
+target_compile_features(blender_shim PUBLIC cxx_std_23)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(blender_shim PRIVATE -Wall -Wextra -Wpedantic)
