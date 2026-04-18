@@ -84,10 +84,6 @@ typedef struct BlenderShimTorsoFrameResult {
     BlenderShimBasis3 basis;
 } BlenderShimTorsoFrameResult;
 
-BlenderShimTorsoFrameResult blender_shim_compute_torso_frame(
-    const BlenderShimNamedJoint *joints,
-    int joint_count);
-
 
 typedef struct BlenderShimBoneDesc {
     const char *name;
