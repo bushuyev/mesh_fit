@@ -4,7 +4,13 @@
 
 #ifndef BLENDER_SHIM_UTILS_H
 #define BLENDER_SHIM_UTILS_H
-int blender_shim_version_major();
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 int blender_shim_version_minor();
 int blender_shim_version_patch();
 int blender_shim_version_string(char *out, int out_size);
@@ -22,6 +28,13 @@ float blender_shim_normalize_vec3(const float in[3], float out[3]);
  * Computes dot product of two 3D vectors using Blender math utilities.
  */
 float blender_shim_dot_vec3(const float a[3], const float b[3]);
+
+
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif //BLENDER_SHIM_UTILS_H
 

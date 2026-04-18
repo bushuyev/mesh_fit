@@ -12,12 +12,7 @@ extern "C" {
 #endif
 
 #include "utils.h"
-
-
-
-
-
-
+int blender_shim_version_major();
 
 typedef struct BlenderShimVec3 {
     float x;
@@ -42,12 +37,12 @@ typedef struct BlenderShimBoneFromJointsResult {
  *
  * ok = 0 if the two joints are too close / degenerate.
  */
-BlenderShimBoneFromJointsResult blender_shim_make_bone_from_joints( BlenderShimVec3 joint_a, BlenderShimVec3 joint_b);
+// BlenderShimBoneFromJointsResult blender_shim_make_bone_from_joints( BlenderShimVec3 joint_a, BlenderShimVec3 joint_b);
 
 /**
  * Debug helper that prints a bone computed from two joints.
  */
-void blender_shim_debug_print_bone_from_joints( const char *label, BlenderShimVec3 joint_a, BlenderShimVec3 joint_b);
+// void blender_shim_debug_print_bone_from_joints( const char *label, BlenderShimVec3 joint_a, BlenderShimVec3 joint_b);
 
 
 
@@ -85,12 +80,12 @@ typedef struct BlenderShimSimpleChainResult {
  * Finds pelvis/spine/neck in the provided joint array and builds a simple chain.
  * Missing joints are reported via *_found = 0.
  */
-BlenderShimSimpleChainResult blender_shim_fit_simple_chain( const BlenderShimNamedJoint *joints, int joint_count);
+// BlenderShimSimpleChainResult blender_shim_fit_simple_chain( const BlenderShimNamedJoint *joints, int joint_count);
 
 /**
  * Debug helper that prints the fitted simple chain.
  */
-void blender_shim_debug_print_simple_chain( const BlenderShimNamedJoint *joints, int joint_count);
+// void blender_shim_debug_print_simple_chain( const BlenderShimNamedJoint *joints, int joint_count);
 
 
 typedef struct BlenderShimTorsoLandmarksResult {
@@ -173,11 +168,11 @@ typedef struct BlenderShimArmatureValidationResult {
     int first_invalid_bone_index;
 } BlenderShimArmatureValidationResult;
 
-BlenderShimArmatureValidationResult blender_shim_validate_armature_desc(
-    const BlenderShimArmatureDesc *armature);
+// BlenderShimArmatureValidationResult blender_shim_validate_armature_desc(
+    // const BlenderShimArmatureDesc *armature);
 
-void blender_shim_debug_print_armature_desc(
-    const BlenderShimArmatureDesc *armature);
+// void blender_shim_debug_print_armature_desc(
+//     const BlenderShimArmatureDesc *armature);
 
 typedef struct BlenderShimWriteBlendResult {
     int ok;
